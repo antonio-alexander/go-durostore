@@ -38,7 +38,6 @@ func New(parameters ...interface{}) interface {
 	Writer
 	Info
 } {
-
 	d := &durostore{
 		indexes: make(map[uint64]*internal_file.Index),
 		data:    make(map[uint64]*[]byte),
@@ -52,7 +51,6 @@ func New(parameters ...interface{}) interface {
 				//KIM: this is the only way to communicate an error/failure
 				panic(err)
 			}
-
 		}
 	}
 	return d
@@ -112,10 +110,9 @@ func (d *durostore) readData() (err error) {
 	// into memory or only loading up to the chunk size (in bytes)
 	// after gathering all of the indexes, read the data in
 	// and upsert into the stored data
-	for i, stop := d.readIndex, false; !stop; i++ {
+	for i := d.readIndex; ; i++ {
 		index, ok := d.indexes[i]
 		if !ok || (d.config.MaxChunk > 0 && dataSize >= d.config.MaxChunk) {
-			stop = true
 			break
 		}
 		indexes = append(indexes, index)
