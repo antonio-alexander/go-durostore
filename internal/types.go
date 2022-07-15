@@ -25,6 +25,9 @@ const (
 	RecoverPanicf      string = "recovered from panic: %v"
 )
 
+//Bytes is used to simplify some internal operations
+type Bytes []byte
+
 //Files
 type Files struct {
 	LockFile   string
@@ -87,6 +90,3 @@ func (i *Index) UnmarshalBinary(data []byte) (err error) {
 
 	return
 }
-
-//Bytes is used to simplify some internal operations
-type Bytes []byte

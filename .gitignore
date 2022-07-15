@@ -15,4 +15,5 @@
 # vendor/
 
 # test files
-temp/*
+!testdata/.gitkeep
+testdata/*

@@ -21,7 +21,7 @@ check-godoc: ## - validate/install godoc
 	which godoc || (go install golang.org/x/tools/cmd/godoc@v0.1.10)
 
 serve-godoc: check-godoc ## - serve (web) the godocs
-	cd .. && godoc -http :8080
+	godoc -http :8080
 
 test: ## - test the source
 	 go test -cover --count=1 ./...

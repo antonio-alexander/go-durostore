@@ -1,7 +1,7 @@
 package durostore
 
 import (
-	internal_file "github.com/antonio-alexander/go-durostore/internal/file"
+	internal "github.com/antonio-alexander/go-durostore/internal"
 )
 
 const (
@@ -13,7 +13,7 @@ const (
 	ErrNoItemsToWrite       string = "no items to write"
 	ErrTooManyIndicesToRead string = "more than one index provided for read"
 	ErrMaxChunkData         string = "max chunk in-memory data reached"
-	ErrMaxStoreSize         string = internal_file.ErrMaxStoreSize
+	ErrMaxStoreSize         string = internal.ErrMaxStoreSize
 )
 
 //Configuration describes the different options to configure an instance of durostore

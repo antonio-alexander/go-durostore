@@ -6,7 +6,7 @@ import (
 	"os"
 	"sync"
 
-	internal_file "github.com/antonio-alexander/go-durostore/internal/file"
+	internal "github.com/antonio-alexander/go-durostore/internal"
 
 	flock "github.com/gofrs/flock"
 	errors "github.com/pkg/errors"
@@ -17,17 +17,17 @@ import (
 // write exceeds the size of an individual file (but not the max size) or the total max size
 
 type durostore struct {
-	sync.RWMutex                                      //mutex for threadsafe operations
-	flock             *flock.Flock                    //file locker
-	config            Configuration                   //the current configuration
-	files             internal_file.Files             //files
-	configured        bool                            //whether or not durostore is configured
-	size              int64                           //the total data in-memory (in bytes)
-	indexes           map[uint64]*internal_file.Index //map of Indexes organized by index
-	data              map[uint64]*[]byte              //map of Data organized by index
-	writeIndex        uint64                          //the index (to write)
-	readIndex         uint64                          //the index (to read)
-	writeFileDataSize int64                           //the current size of the write data file
+	sync.RWMutex                                 //mutex for threadsafe operations
+	flock             *flock.Flock               //file locker
+	config            Configuration              //the current configuration
+	files             internal.Files             //files
+	configured        bool                       //whether or not durostore is configured
+	size              int64                      //the total data in-memory (in bytes)
+	indexes           map[uint64]*internal.Index //map of Indexes organized by index
+	data              map[uint64]*[]byte         //map of Data organized by index
+	writeIndex        uint64                     //the index (to write)
+	readIndex         uint64                     //the index (to read)
+	writeFileDataSize int64                      //the current size of the write data file
 }
 
 //New can be used to generate a populated store pointer
@@ -39,7 +39,7 @@ func New(parameters ...interface{}) interface {
 	Info
 } {
 	d := &durostore{
-		indexes: make(map[uint64]*internal_file.Index),
+		indexes: make(map[uint64]*internal.Index),
 		data:    make(map[uint64]*[]byte),
 	}
 	//it's better, to "create" and then "configure" IMO,
@@ -89,8 +89,8 @@ func (d *durostore) readIndexes(updateWriteIndex bool) (err error) {
 	// will be incremented on the front end, while the read index is incremented on the back
 	// end, if the readindex is 0, we increment it by 1 since 0 should never be a valid
 	// index
-	d.indexes, d.data = make(map[uint64]*internal_file.Index), make(map[uint64]*[]byte)
-	if d.readIndex, writeIndex, err = internal_file.ReadIndexes(d.config.Directory, d.config.FilePrefix, d.indexes); err != nil {
+	d.indexes, d.data = make(map[uint64]*internal.Index), make(map[uint64]*[]byte)
+	if d.readIndex, writeIndex, err = internal.ReadIndexes(d.config.Directory, d.config.FilePrefix, d.indexes); err != nil {
 		return
 	}
 	if updateWriteIndex {
@@ -100,7 +100,7 @@ func (d *durostore) readIndexes(updateWriteIndex bool) (err error) {
 }
 
 func (d *durostore) readData() (err error) {
-	var indexes []*internal_file.Index
+	var indexes []*internal.Index
 	var dataSize int64
 
 	//REVIEW: it would be super useful for this function to also
@@ -118,14 +118,14 @@ func (d *durostore) readData() (err error) {
 		indexes = append(indexes, index)
 		dataSize += (index.Finish - index.Start)
 	}
-	if err = internal_file.ReadData(d.data, indexes...); err != nil {
+	if err = internal.ReadData(d.data, indexes...); err != nil {
 		return
 	}
 	if len(d.data) <= 0 && len(d.indexes) <= 0 {
 		//KIM: since indexes are held in memory in total, if there's no data
 		// AND no indexes, the store is completely empty, so we should "reset"
 		// everything
-		if d.files, d.writeFileDataSize, err = internal_file.FindFiles(d.config.Directory, d.config.FilePrefix); err != nil {
+		if d.files, d.writeFileDataSize, err = internal.FindFiles(d.config.Directory, d.config.FilePrefix); err != nil {
 			return
 		}
 		d.writeIndex, d.readIndex = 0, 0
@@ -150,7 +150,7 @@ func (d *durostore) Close() (err error) {
 	if d.config.FileLocking {
 		err = d.flock.Close()
 	}
-	d.indexes, d.data = make(map[uint64]*internal_file.Index), make(map[uint64]*[]byte)
+	d.indexes, d.data = make(map[uint64]*internal.Index), make(map[uint64]*[]byte)
 	d.config = Configuration{}
 	d.writeIndex, d.readIndex, d.size = 0, 0, 0
 	d.configured = false
@@ -188,8 +188,8 @@ func (d *durostore) Load(config Configuration) (err error) {
 	}
 	d.config = config
 	d.configured = true
-	d.indexes, d.data, d.size = make(map[uint64]*internal_file.Index), make(map[uint64]*[]byte), 0
-	if d.files, d.writeFileDataSize, err = internal_file.FindFiles(d.config.Directory, d.config.FilePrefix); err != nil {
+	d.indexes, d.data, d.size = make(map[uint64]*internal.Index), make(map[uint64]*[]byte), 0
+	if d.files, d.writeFileDataSize, err = internal.FindFiles(d.config.Directory, d.config.FilePrefix); err != nil {
 		return
 	}
 	if d.config.FileLocking {
@@ -226,7 +226,7 @@ func (d *durostore) PruneDirectory(indices ...uint64) (err error) {
 	}
 	d.fLock()
 	defer d.fUnlock()
-	if err = internal_file.PruneDirectory(d.config.Directory, d.config.FilePrefix, readIndexFile); err != nil {
+	if err = internal.PruneDirectory(d.config.Directory, d.config.FilePrefix, readIndexFile); err != nil {
 		return
 	}
 	return d.readIndexes(true)
@@ -241,7 +241,7 @@ func (d *durostore) UpdateIndexes(indexSize ...int64) (size int64, err error) {
 	if !d.configured {
 		return -1, errors.New(ErrNotConfigured)
 	}
-	if size, err = internal_file.Sizes(d.config.Directory, d.config.FilePrefix, internal_file.FileExtensionIndex); err != nil {
+	if size, err = internal.Sizes(d.config.Directory, d.config.FilePrefix, internal.FileExtensionIndex); err != nil {
 		return
 	}
 	if len(indexSize) <= 0 || size > indexSize[0] {
@@ -263,7 +263,7 @@ func (d *durostore) Write(i ...interface{}) (uint64, error) {
 	var writeFileIndex, writeFileData string
 	var writeIndex = d.writeIndex
 	var items []interface{}
-	var data []internal_file.Bytes
+	var data []internal.Bytes
 	var err error
 
 	//switch on the type of the element, attempt to get bytes in a supported
@@ -274,11 +274,11 @@ func (d *durostore) Write(i ...interface{}) (uint64, error) {
 	// update the pointer
 	//KIM: on write (as a rule) we don't store it in the map since we're
 	// already offloading it to disk and don't want a functional memory leak
-	// since data should be periodically read in chunks from disk by internal_file.ReadData()
+	// since data should be periodically read in chunks from disk by internal.ReadData()
 	if !d.configured {
 		return 0, errors.New(ErrNotConfigured)
 	}
-	if err := internal_file.CheckStoreSize(d.config.Directory, d.config.FilePrefix, d.config.MaxFiles, d.config.MaxFileSize); err != nil {
+	if err := internal.CheckStoreSize(d.config.Directory, d.config.FilePrefix, d.config.MaxFiles, d.config.MaxFileSize); err != nil {
 		return 0, err
 	}
 	if len(i) <= 0 {
@@ -311,13 +311,13 @@ func (d *durostore) Write(i ...interface{}) (uint64, error) {
 	}
 	for stop := false; !stop; {
 		var starts, finishes []int64
-		var indexes []*internal_file.Index
+		var indexes []*internal.Index
 
-		if starts, finishes, data, err = internal_file.WriteData(d.files.DataWrite, d.config.MaxFileSize, data); err != nil {
+		if starts, finishes, data, err = internal.WriteData(d.files.DataWrite, d.config.MaxFileSize, data); err != nil {
 			return 0, err
 		}
 		for i, start := range starts {
-			index := &internal_file.Index{
+			index := &internal.Index{
 				Index:     writeIndex,
 				Start:     start,
 				Finish:    finishes[i],
@@ -330,11 +330,11 @@ func (d *durostore) Write(i ...interface{}) (uint64, error) {
 			d.writeFileDataSize += (index.Finish - index.Start)
 		}
 		if len(indexes) > 0 {
-			if err = internal_file.WriteIndex(indexes...); err != nil {
+			if err = internal.WriteIndex(indexes...); err != nil {
 				return 0, err
 			}
 			if d.writeFileDataSize > int64(d.config.MaxFileSize) {
-				if writeFileIndex, writeFileData, err = internal_file.IncrementWriteFile(d.config.Directory, d.config.FilePrefix, d.config.MaxFiles); err != nil {
+				if writeFileIndex, writeFileData, err = internal.IncrementWriteFile(d.config.Directory, d.config.FilePrefix, d.config.MaxFiles); err != nil {
 					return 0, err
 				}
 				d.writeFileDataSize = 0
@@ -395,7 +395,7 @@ func (d *durostore) Read(indices ...uint64) ([]byte, error) {
 			}
 			d.fRLock()
 			defer d.fUnlock()
-			if err := internal_file.ReadData(d.data, index); err != nil {
+			if err := internal.ReadData(d.data, index); err != nil {
 				return nil, err
 			}
 			if b, ok = d.data[i]; !ok {
@@ -434,7 +434,7 @@ func (d *durostore) Delete(i ...uint64) (err error) {
 			}
 		}
 	}
-	indexes := make([]*internal_file.Index, 0, len(i))
+	indexes := make([]*internal.Index, 0, len(i))
 	for _, i := range i {
 		//KIM: the reason this process is so...arduous is because
 		// we want to avoid a situation where there's inconsistency
@@ -445,7 +445,7 @@ func (d *durostore) Delete(i ...uint64) (err error) {
 	}
 	d.fLock()
 	defer d.fUnlock()
-	if err = internal_file.WriteIndex(indexes...); err != nil {
+	if err = internal.WriteIndex(indexes...); err != nil {
 		return
 	}
 	for _, i := range i {
@@ -468,7 +468,7 @@ func (d *durostore) Delete(i ...uint64) (err error) {
 		if index, ok := d.indexes[d.readIndex]; ok {
 			readIndexFile = index.IndexFile
 		}
-		if err = internal_file.PruneDirectory(d.config.Directory, d.config.FilePrefix, readIndexFile); err != nil {
+		if err = internal.PruneDirectory(d.config.Directory, d.config.FilePrefix, readIndexFile); err != nil {
 			return
 		}
 	}

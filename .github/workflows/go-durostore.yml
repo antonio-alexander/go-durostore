@@ -70,6 +70,7 @@ jobs:
             /tmp/go-durostore.out
 
   git_push_tag:
+    if: github.ref == 'refs/heads/main'
     needs: [go_test, environment]
     runs-on: ubuntu-latest
     permissions:

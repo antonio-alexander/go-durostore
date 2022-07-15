@@ -11,13 +11,11 @@ import (
 
 	durostore "github.com/antonio-alexander/go-durostore"
 
-	store_example "github.com/antonio-alexander/go-durostore/internal/example"
-
 	"github.com/stretchr/testify/assert"
 )
 
 const (
-	storeDirectory string = "./temp"
+	storeDirectory string = "./testdata"
 	filePrefix     string = "test"
 )
 
@@ -52,13 +50,13 @@ func TestRead(t *testing.T) {
 	assert.Nil(t, err)
 	_, err = d.Read(0) //attempt to read data that doesn't exist
 	assert.NotNil(t, err)
-	example1 := &store_example.Data{}
+	example1 := &durostore.Example{}
 	index1, err := d.Write(example1)
 	assert.Nil(t, err)
 	assert.Equal(t, index1, uint64(0))
 	bytes, err := d.Read(index1) //attempt to read data that exists
 	assert.Nil(t, err)
-	exampleData := &store_example.Data{}
+	exampleData := &durostore.Example{}
 	err = exampleData.UnmarshalBinary(bytes)
 	assert.Nil(t, err)
 	assert.Equal(t, exampleData, example1)
@@ -94,22 +92,22 @@ func TestWrite(t *testing.T) {
 	assert.Nil(t, err)
 	//attempt to write single element (MarshalBinary, bytes)
 	//TODO: attempt to write []bytes
-	exampleData := &store_example.Data{
+	exampleData := &durostore.Example{
 		Int:    rand.Int(),
 		String: fmt.Sprint(rand.Int()),
 	}
 	index, err := d.Write(exampleData)
 	assert.Nil(t, err)
-	assert.Equal(t, exampleData, store_example.Read(d, index))
+	assert.Equal(t, exampleData, durostore.ExampleRead(d, index))
 	oldIndex := index
 	// (2) Attempt to write multiple elements (MarshalBinary, bytes)
 	//TODO: attempt to write []bytes
 	exampleDatas := []interface{}{
-		&store_example.Data{
+		&durostore.Example{
 			Int:    rand.Int(),
 			String: fmt.Sprint(rand.Int()),
 		},
-		&store_example.Data{
+		&durostore.Example{
 			Int:    rand.Int(),
 			String: fmt.Sprint(rand.Int()),
 		},
@@ -119,7 +117,7 @@ func TestWrite(t *testing.T) {
 	assert.Greater(t, index, oldIndex)
 	assert.Condition(t, func() (success bool) {
 		for i, data := range exampleDatas {
-			if !reflect.DeepEqual(data, store_example.Read(d, uint64(i)+1)) {
+			if !reflect.DeepEqual(data, durostore.ExampleRead(d, uint64(i)+1)) {
 				return false
 			}
 		}
@@ -151,7 +149,7 @@ func TestDelete(t *testing.T) {
 	// for durostore
 	err = d.PruneDirectory()
 	assert.Nil(t, err)
-	exampleData := &store_example.Data{
+	exampleData := &durostore.Example{
 		Int:    rand.Int(),
 		String: fmt.Sprint(rand.Int()),
 	}
@@ -163,7 +161,7 @@ func TestDelete(t *testing.T) {
 	assert.NotNil(t, err)
 	err = d.Delete(1) //delete data that doesn't exist
 	assert.NotNil(t, err)
-	exampleData = &store_example.Data{
+	exampleData = &durostore.Example{
 		Int:    rand.Int(),
 		String: fmt.Sprint(rand.Int()),
 	}
@@ -220,7 +218,7 @@ func TestUpdateIndexes(t *testing.T) {
 	err = d.PruneDirectory()
 	assert.Nil(t, err)
 	for i := 0; i < 10; i++ {
-		_, err := d.Write(&store_example.Data{
+		_, err := d.Write(&durostore.Example{
 			Int:    i,
 			String: fmt.Sprint(i),
 		})
@@ -229,11 +227,11 @@ func TestUpdateIndexes(t *testing.T) {
 	_, err = d.UpdateIndexes()
 	assert.Nil(t, err)
 	for i := 0; i < 10; i++ {
-		dataExpected := &store_example.Data{
+		dataExpected := &durostore.Example{
 			Int:    i,
 			String: fmt.Sprint(i),
 		}
-		data := store_example.Read(d)
+		data := durostore.ExampleRead(d)
 		assert.Equal(t, dataExpected, data)
 		err = d.Delete()
 		assert.Nil(t, err)
@@ -241,7 +239,7 @@ func TestUpdateIndexes(t *testing.T) {
 	err = d.PruneDirectory()
 	assert.Nil(t, err)
 	for i := 0; i < 10; i++ {
-		_, err := d.Write(&store_example.Data{
+		_, err := d.Write(&durostore.Example{
 			Int:    i,
 			String: fmt.Sprint(i),
 		})
@@ -250,11 +248,11 @@ func TestUpdateIndexes(t *testing.T) {
 	_, err = d.UpdateIndexes(0)
 	assert.Nil(t, err)
 	for i := 0; i < 10; i++ {
-		dataExpected := &store_example.Data{
+		dataExpected := &durostore.Example{
 			Int:    i,
 			String: fmt.Sprint(i),
 		}
-		data := store_example.Read(d)
+		data := durostore.ExampleRead(d)
 		assert.Equal(t, dataExpected, data)
 		err = d.Delete()
 		assert.Nil(t, err)
@@ -337,11 +335,11 @@ func TestMaxChunkSize(t *testing.T) {
 }
 
 func TestAsyncWrite(t *testing.T) {
-	var exampleDatas []*store_example.Data
+	var exampleDatas []*durostore.Example
 	var wg sync.WaitGroup
 
 	for i := 0; i < 100; i++ {
-		exampleDatas = append(exampleDatas, &store_example.Data{
+		exampleDatas = append(exampleDatas, &durostore.Example{
 			Int:    i,
 			String: fmt.Sprint(i),
 		})
@@ -358,7 +356,7 @@ func TestAsyncWrite(t *testing.T) {
 	// for durostore
 	err := d.PruneDirectory()
 	assert.Nil(t, err)
-	chExample := make(chan *store_example.Data)
+	chExample := make(chan *durostore.Example)
 	wg.Add(3)
 	for i := 0; i < 2; i++ {
 		go func() {
@@ -386,13 +384,9 @@ func TestAsyncWrite(t *testing.T) {
 		for i := 0; i < d.Length(); i++ {
 			indexes[uint64(i)] = struct{}{}
 		}
-		e := &store_example.Data{}
 		for _, data := range exampleDatas {
 			for index := range indexes {
-				bytes, err := d.Read(index)
-				assert.Nil(t, err)
-				err = e.UnmarshalBinary(bytes)
-				assert.Nil(t, err)
+				e := durostore.ExampleRead(d, index)
 				if reflect.DeepEqual(data, e) {
 					delete(indexes, index)
 				}
@@ -404,11 +398,11 @@ func TestAsyncWrite(t *testing.T) {
 }
 
 func TestAsyncRead(t *testing.T) {
-	var exampleDatas []*store_example.Data
+	var exampleDatas []*durostore.Example
 	var wg sync.WaitGroup
 
 	for i := 0; i < 100; i++ {
-		exampleDatas = append(exampleDatas, &store_example.Data{
+		exampleDatas = append(exampleDatas, &durostore.Example{
 			Int:    i,
 			String: fmt.Sprint(i),
 		})
@@ -436,7 +430,7 @@ func TestAsyncRead(t *testing.T) {
 			defer wg.Done()
 
 			<-start
-			e := &store_example.Data{}
+			e := &durostore.Example{}
 			for i := 0; i < d.Length(); i++ {
 				bytes, err := d.Read(uint64(i))
 				assert.Nil(t, err)
